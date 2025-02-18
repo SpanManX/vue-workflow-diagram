@@ -66,10 +66,26 @@ export function resetImage() {
     target.style.transform = "translate3d(0px, 0px, 0px) scale(1)";
 }
 
+/**
+ * 更新目标元素的变换属性
+ * 该函数用于更新目标元素的CSS变换属性，包括平移和缩放。
+ */
 function updateTransform() {
     target.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
 }
 
+/**
+ * 滚轮缩放函数
+ *
+ * 根据滚轮事件或外部调用实现缩放功能，同时调整目标元素的平移位置以保持缩放中心不变。
+ *
+ * @param {Object} options - 参数对象
+ * @param {number} options.scaleFactor - 缩放因子，大于0表示缩小，小于0表示放大
+ * @param {number} [options.originX=0.5] - 缩放中心点的X坐标比例，默认为0.5（即中心点）
+ * @param {number} [options.originY=0.5] - 缩放中心点的Y坐标比例，默认为0.5（即中心点）
+ * @param {boolean} [options.isExternalCall=false] - 是否为外部调用，默认为false
+ * @param {Function} [callback] - 缩放完成后的回调函数，接收缩放比例（百分比形式）作为参数
+ */
 export function wheelZoomFunc({scaleFactor, originX = 0.5, originY = 0.5, isExternalCall = false}) {
     let ratio = 1.1;
 

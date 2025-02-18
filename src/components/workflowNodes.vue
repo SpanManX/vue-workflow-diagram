@@ -16,7 +16,7 @@
             <div class="content" @click="clickNode(val,i,`优先级${i + 1}`)">
               <span class="left-arrow" v-if="i && val.type === 'condition'" @click.stop="moveToLeft(list,i,l)">⇦</span>
               <span v-if="val.content && val.content !== ''">{{ val.content }}</span>
-              <span class="placeholder">{{ val.placeholder }}</span>
+              <span class="placeholder" v-else>{{ val.placeholder }}</span>
               <span class="right-arrow" v-if="val.type === 'condition' && i !== list.length - 1"
                     @click.stop="moveToRight(list,i,l)">⇨</span>
             </div>
@@ -71,6 +71,7 @@
 </template>
 <script setup>
 import workflowNodes from "./workflowNodes.vue";
+import {watch} from "vue";
 
 const props = defineProps({
   list: Array,
@@ -116,11 +117,22 @@ function addCcTo(val, i) {
 
 function setPlaceholder(val) {
   for (let item of val) {
+    if (item[0].last) {
+      delete item[0].last
+    }
     if (item[0].content === '其他条件进入此流程') {
       item[0].placeholder = '请设置条件'
       item[0].content = ''
     }
   }
+}
+
+function setContent(nodeList) {
+  if (nodeList[nodeList.length - 1][0].placeholder === '请设置条件' && nodeList[nodeList.length - 1][0].content === '') {
+    nodeList[nodeList.length - 1][0].content = '其他条件进入此流程'
+    nodeList[nodeList.length - 1][0].placeholder = ''
+  }
+  nodeList[nodeList.length - 1][0].last = true
 }
 
 /**
@@ -146,6 +158,7 @@ function add(val, i) {
         // placeholder: '其他条件进入此流程',
         type: 'condition',
         id: generateRandomId(),
+        last:true
       }
     ]
   ]
@@ -182,10 +195,7 @@ function moveToLeft(nodeList, i, l) {
   nodeList[i - 1] = temp;
 
   setPlaceholder(nodeList)
-  if (nodeList[nodeList.length - 1][0].placeholder === '请设置条件') {
-    nodeList[nodeList.length - 1][0].content = '其他条件进入此流程'
-    nodeList[nodeList.length - 1][0].placeholder = ''
-  }
+  setContent(nodeList)
 }
 
 function moveToRight(nodeList, i, l) {
@@ -194,10 +204,7 @@ function moveToRight(nodeList, i, l) {
   nodeList[i + 1] = temp;
 
   setPlaceholder(nodeList)
-  if (nodeList[nodeList.length - 1][0].placeholder === '请设置条件') {
-    nodeList[nodeList.length - 1][0].content = '其他条件进入此流程'
-    nodeList[nodeList.length - 1][0].placeholder = ''
-  }
+  setContent(nodeList)
 }
 
 /**
@@ -264,59 +271,13 @@ function removeNode(nodeList, nodeIndex, childIndex, parentList, currentNode) {
     // nodeList.forEach((item,i)=>{
     //   item[0].title = `条件${i + 1}`
     // })
-    if (nodeList[nodeList.length - 1][0].placeholder === '请设置条件') {
-      nodeList[nodeList.length - 1][0].content = '其他条件进入此流程'
-      nodeList[nodeList.length - 1][0].placeholder = ''
-    }
+    setContent(nodeList)
   }
 }
 
 function clickNode(val, i) {
-  emit('clickNode', val, i)
+  emit('clickNode', val, i, props.list)
 }
-
-// function remove(val, i, l, parentData, currentData) {
-//   console.log('currentData', currentData)
-//   console.log(parentData, val, i, l)
-//   if (currentData.type && currentData.type === 'condition') {
-//
-//     if (val.length === 2) {
-//
-//       let parentChildren = {};
-//       let index = -1
-//
-//       for (let item of parentData) {
-//         index++
-//         if (item.children) {
-//           parentChildren = item
-//           break;
-//         }
-//       }
-//
-//       val.splice(i, 1)
-//
-//       parentChildren.children[0].splice(0, 1) // 删除“条件”
-//
-//       let data = parentChildren.children[0]
-//
-//       if (data.length) {
-//         // parentData.push(...data) // 添加数据
-//         parentData.splice(index, 1) // 删除原数据
-//         data.map((item, i) => {
-//           parentData.splice(index + i, 0, item)
-//         })
-//       } else {
-//         parentData.splice(index, 1) // 删除原数据
-//       }
-//
-//       console.log(parentData)
-//     } else {
-//       parentData.splice(i, 1)
-//     }
-//   } else {
-//     val[i].splice(l, 1)
-//   }
-// }
 </script>
 <style scoped lang="scss">
 $line-color: #cccccc;

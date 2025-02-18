@@ -33,7 +33,7 @@ let list = ref(
       {
         title: '发起人',
         placeholder: '请选择发起人',
-        content: '',
+        content: '所有人',
         type: 'start',
         id: 0
       }
@@ -67,9 +67,8 @@ function zoomOut() {
   wheelZoomFunc({scaleFactor: num.value / 100 - 0.1, isExternalCall: true})
 }
 
-function clickNode(val, i) {
-  console.log(val, i)
-  emit('clickNode', val, i)
+function clickNode(val, i, list) {
+  emit('clickNode', val, i, list)
 }
 
 function getData() {
