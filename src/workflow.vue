@@ -50,7 +50,6 @@ onMounted(() => {
   }
   zoomInit(boxRef, contentRef, (val) => {
     num.value = val
-    // contentRef.value.style.transform = `scale(${num})`
   })
 })
 
@@ -72,7 +71,6 @@ function clickNode(val, i, list) {
 }
 
 function getData() {
-  // console.log(JSON.stringify(firstList.value))
   console.log(list.value)
 
   let num = list.value.findIndex(item => item.type === 'approver')
@@ -127,8 +125,6 @@ html, body, #vue-workflow-diagram {
   display: inline-flex;
   align-items: center;
   flex-direction: column;
-  //padding-bottom: 20px;
-
   white-space: nowrap;
 }
 

@@ -382,7 +382,7 @@ $line-color: #cccccc;
       content: '';
       position: absolute;
       width: 100%;
-      height: 1px;
+      height: 2px;
       background: #cccccc;
     }
 
