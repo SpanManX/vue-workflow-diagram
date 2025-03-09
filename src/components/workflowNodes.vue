@@ -25,22 +25,7 @@
         <div class="add-box"
              :class="{'last-add-box':l === item.length - 1 && (!val.children || !val.children.length), 'short-add-box':item[l + 1] && item[l + 1].children}"
              v-if="val.title">
-          <div class="popover">
-            <span class="add-item">+</span>
-            <div class="tools-list">
-              <div>
-                <div>
-                  <span class="tools-item" @click="addApprover(item,l)">审批人</span>
-                </div>
-                <div>
-                  <span class="tools-item" @click="addCcTo(item,l)">抄送人</span>
-                </div>
-                <div>
-                  <span class="tools-item" @click="add(item,l)">添加条件分支</span>
-                </div>
-              </div>
-            </div>
-          </div>
+          <tools @addApprover="addApprover(item,l)" @addCcTo="addCcTo(item,l)" @add="add(item,l)"></tools>
         </div>
         <workflowNodes v-if="val.children" :list="val.children" :index="l" :parent-data="item"
                        @click-node="clickNode"></workflowNodes>
@@ -49,29 +34,15 @@
   </div>
   <div class="workflow-bottom-nodes" v-if="typeof props.index !== 'undefined'">
     <div class="add-box">
-      <div class="popover">
-        <span class="add-item">+</span>
-
-        <div class="tools-list">
-          <div>
-            <div>
-              <span class="tools-item" @click="addApprover(parentData,index)">审批人</span>
-            </div>
-            <div>
-              <span class="tools-item" @click="addCcTo(parentData,index)">抄送人</span>
-            </div>
-            <div>
-              <span class="tools-item" @click="add(parentData,index)">添加条件分支</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      <tools @addApprover="addApprover(parentData,index)" @addCcTo="addCcTo(parentData,index)"
+             @add="add(parentData,index)"></tools>
     </div>
   </div>
 </template>
 <script setup>
 import workflowNodes from "./workflowNodes.vue";
 import {watch} from "vue";
+import tools from "./tools.vue";
 
 const props = defineProps({
   list: Array,
@@ -158,7 +129,7 @@ function add(val, i) {
         // placeholder: '其他条件进入此流程',
         type: 'condition',
         id: generateRandomId(),
-        last:true
+        last: true
       }
     ]
   ]
@@ -315,11 +286,6 @@ $line-color: #cccccc;
   color: #cccccc;
 }
 
-.tools-item {
-  cursor: pointer;
-  color: #409eff;
-}
-
 .but {
   font-size: 12px;
   padding: 5px 10px;
@@ -405,7 +371,6 @@ $line-color: #cccccc;
     }
   }
 }
-
 
 //全局
 .workflow-item {
@@ -522,58 +487,6 @@ $line-color: #cccccc;
     height: 100%;
     background: $line-color;
     z-index: -1;
-  }
-
-  .add-item {
-    display: inline-block;
-    cursor: pointer;
-    width: 30px;
-    height: 30px;
-    text-align: center;
-    font-size: 21px;
-    font-weight: bold;
-    background: #2385c8;
-    color: #fff;
-    border-radius: 50%;
-  }
-}
-
-.popover {
-  position: relative;
-  z-index: 1000;
-
-  .tools-list {
-    padding-left: 10px;
-    display: none;
-    position: absolute;
-    top: -23px;
-    left: 30px;
-
-    &:before {
-      content: '';
-      position: absolute;
-      top: calc(50% - 6px);
-      left: 4px;
-      width: 10px;
-      height: 10px;
-      background: #ffffff;
-      transform: rotate(45deg);
-      border-left: 1px solid $line-color;
-      border-bottom: 1px solid $line-color;
-    }
-
-    & > div {
-      text-align: center;
-      background: #ffffff;
-      padding: 5px 15px;
-      border: 1px solid $line-color;
-      border-radius: 4px;
-      box-shadow: 0 0 10px rgba(0, 0, 0, .2);
-    }
-  }
-
-  &:hover .tools-list {
-    display: block;
   }
 }
 </style>
