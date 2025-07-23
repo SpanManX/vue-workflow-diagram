@@ -327,9 +327,9 @@ $line-color: #cccccc;
       position: absolute;
       top: 0;
       left: calc(50% - 1px);
-      width: 2px;
+      border: 1px solid $line-color;
+      box-sizing: border-box;
       height: 100%;
-      background: $line-color;
       z-index: -1;
     }
   }
@@ -348,8 +348,8 @@ $line-color: #cccccc;
       content: '';
       position: absolute;
       width: 100%;
-      height: 2px;
-      background: #cccccc;
+      border: 1px solid $line-color;
+      box-sizing: border-box;
     }
 
     &:before {
