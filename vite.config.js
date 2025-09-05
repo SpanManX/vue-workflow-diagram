@@ -6,6 +6,6 @@ import dts from "vite-plugin-dts";
 export default defineConfig({
   plugins: [vue()],
   server: {
-    port: 9999,
+    port: 8888,
   },
 })
