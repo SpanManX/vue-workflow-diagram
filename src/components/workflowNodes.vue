@@ -1,145 +1,134 @@
 <template>
-  <span class="but" @click="addCondition(list)" v-if="typeof props.index !== 'undefined'">添加条件分支</span>
-  <div class="workflow-content-nodes">
-    <div class="workflow-node" v-for="(item,i) in list"
+  <span class="but" @click="addCondition(list)" v-if="judgeBranch()">添加条件分支</span>
+  <div class="workflow-content-nodes"
+       :style="{flex:list.length === 1 ? nodesMap.get(list[0]).type === 'start' ? '' : 1 : ''}">
+    <div class="workflow-node" v-for="(val,i) in list"
          :class="{'node-border':list.length > 1}">
-      <template v-for="(val,l) in item">
-        <div class="workflow-item" :class="val.type" v-if="val.title">
-          <div>
-            <div class="title"
-                 :class="{'default':val.type === 'start','indigo':val.type === 'ccTo',yellow:val.type === 'approver',purple:val.type === 'condition'}">
-              <!--              <span v-if="val.type === 'approver'">📝</span> -->
-              {{ val.title }}
-              <span class="priority" v-if="val.type === 'condition'">（优先级{{ i + 1 }}）</span>
-              <span class="close" @click="removeNode(list,i,l,parentData,val)" v-if="val.type !== 'start'">×</span>
-            </div>
-            <div class="content" @click="clickNode(val,i,`优先级${i + 1}`)">
-              <span class="left-arrow" v-if="i && val.type === 'condition'" @click.stop="moveToLeft(list,i,l)">⇦</span>
-              <span v-if="val.content && val.content !== ''">{{ val.content }}</span>
-              <span class="placeholder" v-else>{{ val.placeholder }}</span>
-              <span class="right-arrow" v-if="val.type === 'condition' && i !== list.length - 1"
-                    @click.stop="moveToRight(list,i,l)">⇨</span>
-            </div>
+      <div class="workflow-item" :class="nodesMap.get(val).type" v-if="nodesMap.get(val).title">
+        <div>
+          <div class="title"
+               :class="{'default':nodesMap.get(val).type === 'start','indigo':nodesMap.get(val).type === 'ccTo',yellow:nodesMap.get(val).type === 'approver',purple:nodesMap.get(val).type === 'condition'}">
+            {{ nodesMap.get(val).title }}{{ nodesMap.get(val).tip }}
+            <span class="priority" v-if="nodesMap.get(val).type === 'condition'">
+              {{ setPriorityLevel(nodesMap.get(val), i) }}
+            </span>
+            <!--删除-->
+            <span class="close" @click="removeNode(list,index,i,parentData,nodesMap.get(val))"
+                  v-if="nodesMap.get(val).type !== 'start'">×</span>
+          </div>
+          <div class="content" @click="clickNode(nodesMap.get(val),i,`优先级${i + 1}`)">
+              <span class="left-arrow" v-if="i && nodesMap.get(val).type === 'condition'"
+                    @click.stop="moveToLeft(list,i)">⇦</span>
+            <span class="text" v-if="nodesMap.get(val).content && nodesMap.get(val).content !== ''">
+              {{ nodesMap.get(val).content }}
+            </span>
+            <span class="placeholder" v-else>{{ nodesMap.get(val).placeholder }}</span>
+            <span class="right-arrow" v-if="nodesMap.get(val).type === 'condition' && i !== list.length - 1"
+                  @click.stop="moveToRight(list,i)">⇨</span>
           </div>
         </div>
-        <div class="add-box"
-             :class="{'last-add-box':l === item.length - 1 && (!val.children || !val.children.length), 'short-add-box':item[l + 1] && item[l + 1].children}"
-             v-if="val.title">
-          <tools @addApprover="addApprover(item,l)" @addCcTo="addCcTo(item,l)" @add="add(item,l)"></tools>
-        </div>
-        <workflowNodes v-if="val.children" :list="val.children" :index="l" :parent-data="item"
+      </div>
+      <div class="add-box"
+           :class="{'last-add-box':!nodesMap.get(val).to[0] || !nodesMap.get(val).to[0].length, 'short-add-box':list[i] && nodesMap.get(list[i]).to}"
+           v-if="nodesMap.get(val).title || (nodesMap.get(val).to && nodesMap.get(val).to.length)">
+        <tools @addApprover="addApprover(nodesMap.get(val),index)" @addCcTo="addCcTo(nodesMap.get(val),index)"
+               @add="add(nodesMap.get(val))"></tools>
+      </div>
+      <template v-if="nodesMap.get(val).to && nodesMap.get(val).to.length">
+        <workflowNodes v-for="(child, ci) in nodesMap.get(val).to"
+                       :list="child"
+                       :index="ci"
+                       :parent-data="nodesMap.get(val).to"
+                       :parent-node="nodesMap.get(val)"
+                       :id="nodesMap.get(val).id"
                        @click-node="clickNode"></workflowNodes>
       </template>
     </div>
   </div>
-  <div class="workflow-bottom-nodes" v-if="typeof props.index !== 'undefined'">
+  <div class="workflow-bottom-nodes" :class="{'workflow-bottom-nodes-flex': parentData.length === 1}"
+       v-if="typeof props.index !== 'undefined' && list.length > 1">
     <div class="add-box">
-      <tools @addApprover="addApprover(parentData,index)" @addCcTo="addCcTo(parentData,index)"
-             @add="add(parentData,index)"></tools>
+      <tools @addApprover="addApprover(parentNode,index,parentData,'last')"
+             @addCcTo="addCcTo(parentNode,index,parentData,'last')"
+             @add="add(parentNode,parentData,index)"></tools>
     </div>
   </div>
 </template>
 <script setup>
-import workflowNodes from "./workflowNodes.vue";
-import {watch} from "vue";
 import tools from "./tools.vue";
+import workflowNodes from "./workflowNodes.vue";
+import {computed, nextTick} from "vue";
+import {
+  generateRandomId,
+  getNodesMap,
+  handleAdd,
+  handleAddApprover,
+  handleAddCcTo,
+  setNodesMap,
+  updateDepthRecursively
+} from "../utils/handleNodes.js";
 
 const props = defineProps({
   list: Array,
   index: Number,
-  depth: Number,
   parentData: [Object, Array],
-  testData: Object
+  id: String,
+  parentNode: {
+    type: Object,
+    default: () => ({
+      children: [],
+    })
+  }
 })
 
 const emit = defineEmits(['clickNode'])
 
-function generateRandomId() {
-  const timestamp = new Date().getTime(); // 获取当前时间戳
-  const randomNum = Math.floor(Math.random() * 1000); // 生成一个0-999之间的随机数
-  return `${timestamp}${randomNum}`; // 返回拼接后的ID字符串
+const nodesMap = computed(() => getNodesMap())
+
+function setPriorityLevel(val, i) {
+  val.priorityLevel = i + 1
+  return `（优先级${val.priorityLevel}）`
 }
 
 /**
  * 插入审批人
  */
-function addApprover(val, i) {
-  val.splice(i + 1, 0, {
-    title: '审批人',
-    content: '',
-    placeholder: '请选择审批人',
-    type: 'approver',
-    id: generateRandomId(),
-  })
+function addApprover(val, i, parentData, key) {
+  handleAddApprover(val, i, parentData, key)
 }
 
 /**
  * 插入抄送人
  */
-function addCcTo(val, i) {
-  val.splice(i + 1, 0, {
-    title: '抄送人',
-    content: '',
-    placeholder: '请选择抄送人',
-    type: 'ccTo',
-    id: generateRandomId(),
-  })
-}
-
-function setPlaceholder(val) {
-  for (let item of val) {
-    if (item[0].last) {
-      delete item[0].last
-    }
-    if (item[0].content === '其他条件进入此流程') {
-      item[0].placeholder = '请设置条件'
-      item[0].content = ''
-    }
-  }
-}
-
-function setContent(nodeList) {
-  if (nodeList[nodeList.length - 1][0].placeholder === '请设置条件' && nodeList[nodeList.length - 1][0].content === '') {
-    nodeList[nodeList.length - 1][0].content = '其他条件进入此流程'
-    nodeList[nodeList.length - 1][0].placeholder = ''
-  }
-  nodeList[nodeList.length - 1][0].last = true
+function addCcTo(val, i, parentData, key) {
+  handleAddCcTo(val, i, parentData, key)
 }
 
 /**
  * 添加条件分支
  *
  * @param val 需要操作的数组
- * @param i 插入子项的索引位置
+ * @param parentData
+ * @param i
  */
-function add(val, i) {
-  let arr = [[
-    {
-      title: '条件',
-      content: '',
-      placeholder: '请设置条件',
-      type: 'condition',
-      id: generateRandomId(),
-    }
-  ],
-    [
-      {
-        title: '条件',
-        content: '其他条件进入此流程',
-        // placeholder: '其他条件进入此流程',
-        type: 'condition',
-        id: generateRandomId(),
-        last: true
-      }
-    ]
-  ]
+function add(val, parentData, i) {
+  handleAdd(val, parentData, i)
+}
 
-  if (val[i + 1]) {
-    let data = val.splice(i + 1, val.length - 1)
-    arr[0].push(...data)
-    val.splice(i + 1, 0, {children: arr})
-  } else {
-    val.push({children: arr})
+function setPlaceholder(val) {
+  for (let item of val) {
+    const node = nodesMap.value.get(item)
+    if (node.content === '其他条件进入此流程') {
+      node.placeholder = '请设置条件'
+      node.content = ''
+    }
+  }
+}
+
+function setContent(ids) {
+  if (nodesMap.value.get(ids.at(-1)).placeholder === '请设置条件' && nodesMap.value.get(ids.at(-1)).content === '') {
+    nodesMap.value.get(ids.at(-1)).content = '其他条件进入此流程'
+    nodesMap.value.get(ids.at(-1)).placeholder = ''
   }
 }
 
@@ -150,17 +139,20 @@ function add(val, i) {
  */
 function addCondition(val) {
   setPlaceholder(val)
-  val.push([
-    {
-      title: `条件`,
-      content: '其他条件进入此流程',
-      // placeholder: '',
-      type: 'condition',
-    }
-  ])
+  const obj = {
+    title: `条件`,
+    content: '其他条件进入此流程',
+    // placeholder: '其他条件进入此流程',
+    type: 'condition',
+    id: generateRandomId(),
+    to: []
+  }
+  setNodesMap(obj)
+  val.push(obj.id)
+  updateDepthRecursively([Array.from(nodesMap.value.keys())[0]])
 }
 
-function moveToLeft(nodeList, i, l) {
+function moveToLeft(nodeList, i) {
   let temp = nodeList[i];
   nodeList[i] = nodeList[i - 1];
   nodeList[i - 1] = temp;
@@ -169,7 +161,7 @@ function moveToLeft(nodeList, i, l) {
   setContent(nodeList)
 }
 
-function moveToRight(nodeList, i, l) {
+function moveToRight(nodeList, i) {
   let temp = nodeList[i];
   nodeList[i] = nodeList[i + 1];
   nodeList[i + 1] = temp;
@@ -178,76 +170,128 @@ function moveToRight(nodeList, i, l) {
   setContent(nodeList)
 }
 
+// 递归删除子节点函数
+const deleteChildren = (nodeIds) => {
+  if (nodeIds.length) {
+    nodeIds.forEach((childId) => {
+      const node = nodesMap.value.get(childId);
+      nodesMap.value.delete(childId);
+      if (node && node.to.length) {
+        deleteChildren(node.to.flat(Infinity)); // 递归删除子节点
+      }
+    });
+  }
+};
+
 /**
- * 从树形中删除指定节点
+ * 从图结构中删除指定节点
  *
  * @param nodeList 需要删除节点的列表
- * @param nodeIndex 节点索引
- * @param childIndex 子节点索引
- * @param parentList 父级数据
- * @param currentNode 当前节点
+ * @param nodeIndex 节点索引（在props中的位置）
+ * @param childIndex 子节点索引（在当前列表中的位置）
+ * @param parentList 父级数据（当前列表的父级to数组）
+ * @param currentNode 当前节点对象
  */
 function removeNode(nodeList, nodeIndex, childIndex, parentList, currentNode) {
-  console.log('currentNode:', currentNode);
-  console.log('parentList:', parentList, nodeList, nodeIndex, childIndex);
-
-  // 如果是“条件”节点
+  // 如果是条件节点
   if (currentNode.type === 'condition') {
-    if (nodeList.length === 2) {
+    const copyNode = JSON.parse(JSON.stringify(currentNode));
+    // 从当前列表中移除该节点
+    nodeList.splice(childIndex, 1);
+    // 从nodesMap中删除该节点
+    nodesMap.value.delete(currentNode.id);
+    // 删除关联节点
+    nextTick(() => deleteChildren(copyNode.to.flat(Infinity)))
 
-      let parentIndex = -1
+    // 处理特殊情况：如果删除后只剩一个节点，需要合并分支
+    if (nodeList.length === 1 && parentList && props.parentNode) {
+      const remainingNodeId = nodeList[0];
+      const remainingNode = nodesMap.value.get(remainingNodeId);
+      nodeList.splice(0, 1); // 删除最后一个节点
 
-      // 查找父级索引
-      parentList.map((item, i) => {
-        if (item.children) {
-          item.children.map(val => {
-            if (val[0].id === currentNode.id) {
-              parentIndex = i
+      // 将剩余节点的子节点提升到父节点
+      if (remainingNode && remainingNode.to && remainingNode.to.length) {
+        const parentToIndex = props.parentNode.to.indexOf(props.list);
+        if (parentToIndex !== -1) {
+          const deletedToData = props.parentNode.to.splice(
+              parentToIndex,
+              props.parentNode.to.length - parentToIndex || 1,
+              [...remainingNode.to[0]]
+          );
+
+          // 如果子分支只有一层或多层，动态找到最底层节点
+          if (remainingNode.to[0].length >= 1) {
+            let arr = [];
+            deletedToData.forEach(item => {
+              if (item && item.length) {
+                arr.push(item);
+              }
+            });
+            // 找到最底层节点并更新它的 to
+            const deepestNode = getDeepestNode(remainingNode.to[0][0]);
+            if (deepestNode) {
+              deepestNode.to = [...arr];
             }
-          })
+          }
         }
-      })
-
-      if (parentIndex === -1) return;
-
-      let parentChildren = parentList[parentIndex];
-
-      // 删除当前节点
-      nodeList.splice(nodeIndex, 1);
-
-      // 删除“条件”节点
-      parentChildren.children[0].splice(0, 1);
-
-      // 获取 children 剩下的所有数据
-      let childrenData = parentChildren.children[0];
-
-      if (childrenData.length) {
-        // 删除父级原 children 数据，并展开 childrenData 插入
-        parentList.splice(parentIndex, 1, ...childrenData);
-      } else {
-        // 直接删除整个父级 children
-        parentList.splice(parentIndex, 1);
       }
-    } else {
-      // 如果 `nodeList` 中仍有多个元素，则正常删除
-      nodeList.splice(nodeIndex, 1);
+      // 从nodesMap中删除剩余节点
+      nodesMap.value.delete(remainingNodeId);
     }
-  } else {  // 普通节点删除
-    nodeList[nodeIndex].splice(childIndex, 1);
+  } else { // 如果是普通节点
+    // 从当前列表中移除该节点
+    nodeList.splice(childIndex, 1);
+    nodesMap.value.delete(currentNode.id);
+    // 将当前节点的子节点添加到父节点的to数组中
+    props.parentNode.to.push(...currentNode.to)
   }
 
-  // 设置条件文字提示，如果最后一个条件节点是“其他条件进入此流程”则不显示 placeholder
-  if (nodeList[nodeList.length - 1][0]) {
-    setPlaceholder(nodeList)
-    // nodeList.forEach((item,i)=>{
-    //   item[0].title = `条件${i + 1}`
-    // })
-    setContent(nodeList)
+  nextTick(() => {
+    // 过滤掉空数组
+    for (let i = parentList.length - 1; i >= 0; i--) {
+      if (!Array.isArray(parentList[i]) || parentList[i].length === 0) {
+        parentList.splice(i, 1);
+      }
+    }
+    updateDepthRecursively([Array.from(nodesMap.value.keys())[0]])
+  })
+
+  // 更新条件提示
+  if (nodesMap.value.get(nodeList.at(-1)) && nodeList.length) {
+    setPlaceholder(nodeList);
+    setContent(nodeList);
   }
+}
+
+/**
+ * 工具函数：动态找到分支的最底层节点
+ **/
+function getDeepestNode(startId) {
+  let currentNode = nodesMap.value.get(startId);
+  while (
+      currentNode &&
+      Array.isArray(currentNode.to) &&
+      currentNode.to.length &&
+      Array.isArray(currentNode.to[0]) &&
+      currentNode.to[0].length
+      ) {
+    // 一直沿着第一个子分支向下
+    currentNode = nodesMap.value.get(currentNode.to[0][0]);
+  }
+  return currentNode;
 }
 
 function clickNode(val, i) {
   emit('clickNode', val, i, props.list)
+}
+
+function judgeBranch() {
+  for (const id of props.list) {
+    if (nodesMap.value.get(id).type !== 'condition') {
+      return false
+    }
+  }
+  return typeof props.index !== 'undefined' && props.list.length
 }
 </script>
 <style scoped lang="scss">
@@ -273,9 +317,12 @@ $line-color: #cccccc;
   background: #2385c8;
 }
 
+.workflow-bottom-nodes-flex {
+  flex: 1;
+}
+
 .workflow-bottom-nodes {
   text-align: center;
-  flex: 1;
 
   .add-box {
     height: 100%;
@@ -339,8 +386,10 @@ $line-color: #cccccc;
     flex-direction: column;
     align-items: center;
     position: relative;
+    //top: -2px;
     height: 100%;
     box-sizing: border-box;
+    overflow: hidden;
   }
 
   .node-border {
@@ -432,6 +481,8 @@ $line-color: #cccccc;
     color: #000000;
     font-size: 14px;
     padding: 15px 15px 15px 20px;
+    height: 54px;
+    box-sizing: border-box;
 
     &:hover {
       .left-arrow, .right-arrow {
@@ -439,8 +490,16 @@ $line-color: #cccccc;
       }
     }
 
+    .text {
+      display: inline-block;
+      width: 100%;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
     .placeholder {
-      color: $line-color;
+      color: #9c9090;
     }
 
     .left-arrow, .right-arrow {
@@ -465,6 +524,7 @@ $line-color: #cccccc;
 
 .add-box:not(.short-add-box) {
   padding: 50px 0;
+  //flex: 1;
 }
 
 .short-add-box {
@@ -484,7 +544,7 @@ $line-color: #cccccc;
     top: 0;
     left: calc(50% - 1px);
     width: 2px;
-    height: 100%;
+    height: calc(100% + 2px);
     background: $line-color;
     z-index: -1;
   }

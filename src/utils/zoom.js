@@ -5,12 +5,18 @@ let isDragging = false; // 是否处于拖拽状态
 let startX, startY; // 记录鼠标拖拽起始位置
 let target = null; // 目标元素
 let wrapper = null; // 容器元素
+let saveInitialScale = null
 
-export function zoomInit(dom1, dom2, cb) {
+export function zoomInit(dom1, dom2, {initialScale = 1, cb}) {
+    saveInitialScale = initialScale
     callback = cb;
-    scale = 1;
+    scale = initialScale;
     wrapper = dom1.value
     target = dom2.value
+    if(initialScale !== 1) {
+        resetImage();
+    }
+    callback((scale * 100).toFixed(0));
 
     // 在 wrapper 内部监听鼠标滚轮缩放
     wrapper.addEventListener("wheel", function (event) {
@@ -37,6 +43,7 @@ export function zoomInit(dom1, dom2, cb) {
         const originY = offsetY / rect.height;
 
         wheelZoomFunc({scaleFactor: event.deltaY, originX, originY});
+        // }, { passive: true });
     });
 
     // 鼠标按下，开始拖拽
@@ -70,13 +77,14 @@ export function zoomInit(dom1, dom2, cb) {
  * 重置大小和位置
  **/
 export function resetImage() {
-    scale = 1;
+    scale = saveInitialScale;
     translateX = 0
     translateY = 0;
     isDragging = false;
     startX = null
     startY = null;
-    target.style.transform = "translate3d(0px, 0px, 0px) scale(1)";
+    target.style.transform = `translate3d(0px, 0px, 0px) scale(${scale})`;
+    callback && callback((scale * 100).toFixed(0));
 }
 
 /**

@@ -1,5 +1,5 @@
 <template>
-  <div class="workflow-box" ref="boxRef">
+  <div ref="boxRef" class="workflow-box">
     <div class="zoom-wrapper">
       <span class="zoom-out" @click="zoomOut">─</span>
       <span class="num">{{ num }}%</span>
@@ -7,8 +7,8 @@
       <span class="zoom-reset" @click="zoomReset">重置</span>
       <span class="zoom-reset" @click="getData">获取数据</span>
     </div>
-    <div class="workflow-content-wrapper" ref="contentRef">
-      <workflowNodes :list="[list]"
+    <div ref="contentRef" class="workflow-content-wrapper">
+      <workflowNodes :list="list"
                      :parentData="list" @click-node="clickNode"></workflowNodes>
       <div class="end">
         <br/>
@@ -18,9 +18,20 @@
   </div>
 </template>
 <script setup>
-import {onMounted, ref} from "vue";
+import {onMounted, onUnmounted, ref, watch} from "vue";
 import workflowNodes from "./components/workflowNodes.vue";
 import {resetImage, wheelZoomFunc, zoomInit} from "./utils/zoom.js";
+import {
+  clearNodesMap,
+  generateRandomId,
+  getNodesMap,
+  setNodesMap
+} from "./utils/handleNodes.js";
+import {startOptions} from "./utils/dictionary.js";
+
+defineExpose({
+  getData
+})
 
 const props = defineProps({
   data: Array,
@@ -28,33 +39,48 @@ const props = defineProps({
 
 const emit = defineEmits(['clickNode'])
 
-let list = ref(
-    [
-      {
-        title: '发起人',
-        placeholder: '请选择发起人',
-        content: '所有人',
-        type: 'start',
-        id: 0
-      }
-    ]
+const list = ref(
+    // Array.from(getNodesMap1().keys())
+    // Object.keys(getNodesMap())
 )
+const boxRef = ref(null)
+const contentRef = ref(null)
+const num = ref(100)
 
-let boxRef = ref(null)
-let contentRef = ref(null)
-let num = ref(100)
+watch(() => props.data, (val) => {
+  if (val && val.length) {
+    props.data.forEach(item => {
+      setNodesMap(item)
+      if (item.type === 'condition' && !item.conditionExpr) {
+        item.content = '其他条件进入此流程'
+      }
+    })
+    list.value = [props.data[0].id]
+  } else {
+    const obj = {
+      title: '发起人',
+      placeholder: '请选择发起人',
+      content: '所有人',
+      type: 'start',
+      tip: `（${startOptions[0]}）`,
+      assigneeType: 0,
+      id: generateRandomId(),
+      to: []
+    }
+    setNodesMap(obj)
+    list.value = [obj.id]
+  }
+}, {immediate: true})
 
 onMounted(() => {
-  if (props.data && props.data.length) {
-    list.value.push(props.data)
-  }
-  zoomInit(boxRef, contentRef, (val) => {
-    num.value = val
+  zoomInit(boxRef, contentRef, {
+    cb: (val) => {
+      num.value = val
+    }
   })
 })
 
 function zoomReset() {
-  num.value = 100
   resetImage()
 }
 
@@ -71,16 +97,16 @@ function clickNode(val, i, list) {
 }
 
 function getData() {
-  console.log(list.value)
-
-  let num = list.value.findIndex(item => item.type === 'approver')
-  let str = ''
-  if (num !== -1) {
-    str = '流程开始或流程结束阶段，须配置至少一个审批人节点'
-  }
-
-  // return num !== -1
+  console.log(JSON.stringify(Array.from(getNodesMap().values())))
+  console.log(getNodesMap())
+  return getNodesMap()
 }
+
+onUnmounted(() => {
+  list.value = []
+  clearNodesMap()
+  zoomReset()
+})
 </script>
 <style lang="scss">
 html, body, #vue-workflow-diagram {
@@ -92,9 +118,9 @@ html, body, #vue-workflow-diagram {
   height: 100%;
   //overflow: auto;
   overflow: hidden;
-  text-align: center;
+  //text-align: center;
   position: relative;
-  padding: 20px;
+  //padding: 20px;
   box-sizing: border-box;
 
   .zoom-wrapper {
@@ -120,6 +146,7 @@ html, body, #vue-workflow-diagram {
 }
 
 .workflow-content-wrapper {
+  user-select: none;
   height: 100%;
   width: 100%; // 如果要使用滚动条，则去掉此行
   display: inline-flex;
